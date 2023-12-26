@@ -1,0 +1,12 @@
+numpy 
+opencv-python
+keras 
+tensorflow
+face_recognition
+fastapi 
+uvicorn 
+python-multipart 
+firebase-admin 
+pydantic 
+pytz 
+requests

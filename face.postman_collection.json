@@ -1,0 +1,114 @@
+{
+	"info": {
+		"_postman_id": "1256f453-21d8-4e67-a713-839a9089a1fd",
+		"name": "face",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21462224"
+	},
+	"item": [
+		{
+			"name": "checkin",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\": \"Nguyen Quang Truong\",\r\n    \"personId\": \"20020007\",\r\n    \"timestamp\": \"2023-12-26T14:10:00\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/checkin",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"checkin"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "check attendace",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"personIds\": [\"20020007\", \"20020005\"],\r\n    \"startTime\": \"2023-12-26 13:00:00\",\r\n    \"endTime\": \"2023-12-26 14:00:00\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/check-attendance",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"check-attendance"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "name",
+							"value": "Nguyen Quang Truong",
+							"type": "text"
+						},
+						{
+							"key": "personId",
+							"value": "20020008",
+							"type": "text"
+						},
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/C:/Users/nhutv/Downloads/410866501_332387542931276_6905304398140235266_n.jpg"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/register",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"register"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

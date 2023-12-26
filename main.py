@@ -4,14 +4,13 @@ from typing import List
 from datetime import datetime, timedelta
 import face_recognition
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore,storage
 import os
 from pydantic import BaseModel
 from pytz import utc
-
 # Initialize Firebase Admin
 cred = credentials.Certificate("./firebase.json")
-firebase_admin.initialize_app(cred)
+firebase_admin.initialize_app(cred,{"storageBucket": "video-sum-b43b5.appspot.com",})
 db = firestore.client()
 
 # FastAPI app instance
@@ -36,7 +35,7 @@ async def check_in(check_in_data: CheckInRequest):
     timestamp_naive = timestamp.replace(tzinfo=None)
 
     # Create a composite ID for the document based on personId and the hour of check-in
-    doc_id = f"{personId}_{timestamp_naive.strftime('%Y%m%d%H')}"
+    doc_id = f"{timestamp_naive.strftime('%Y%m%d')}" # Save this into Month-Day
 
     try:
         # Try to get the existing document for this hour
@@ -150,7 +149,22 @@ async def register(name: str = Form(...), personId: str = Form(...), file: Uploa
         with open(file_path, 'wb') as image:
             content = await file.read()  # async read
             image.write(content)
+        # Upload the file to Firebase Storage
+        bucket = storage.bucket()
+        blob = bucket.blob(filename)
+        blob.upload_from_filename(file_path)
 
+        # Get the download URL of the uploaded file
+        download_url = blob.public_url
+
+        # Store information in Firestore
+        db = firestore.client()
+        user_ref = db.collection('users').document(personId)
+        user_ref.set({
+            'name': name,
+            'personId': personId,
+            'url': download_url,
+        })
         # Process and store the face encoding (optional, depending on your use case)
         current_image = face_recognition.load_image_file(file_path)
         encodings = face_recognition.face_encodings(current_image)
@@ -162,7 +176,58 @@ async def register(name: str = Form(...), personId: str = Form(...), file: Uploa
 
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to register user: {e}"}, status_code=500)
+@app.get("/get_users")
+async def get_users():
+    try:
+        db = firestore.client()
+        users_ref = db.collection('users')
 
+        # Get all documents in the "users" collection
+        users = users_ref.stream()
+
+        # Extract data from each document
+        result = []
+        for user in users:
+            user_data = user.to_dict()
+            result.append(user_data)
+
+        return result
+
+    except Exception as e:
+        return JSONResponse(content={"error": f"Failed to get user: {e}"}, status_code=500)
+
+@app.delete("/delete_user/")
+async def delete_user(name: str, personId: str):
+    try:
+        db = firestore.client()
+        users_ref = db.collection('users')
+        query = users_ref.where('personId', '==', personId).stream()
+        user_doc = next(query, None)
+        if user_doc:
+            # Get the user data
+            user_data = user_doc.to_dict()
+
+            # Delete the user's image from Firebase Storage
+            storage_filename = f"{name} - {personId}.jpg"
+            bucket = storage.bucket()
+            blob = bucket.blob(storage_filename)
+            blob.delete()
+
+            # Delete the user document from Firestore
+            users_ref.document(personId).delete()
+
+            # Delete the user's image from the local file system
+            local_filename = f"{name} - {personId}.jpg"
+            local_filepath = os.path.join("./images", local_filename)
+            os.remove(local_filepath)
+
+            return {"message": f"User {name} with ID {personId} deleted successfully"}
+
+        else:
+            return JSONResponse(content={"error": f"Not found user"}, status_code=404)
+
+    except Exception as e:
+        return JSONResponse(content={"error": f"Failed to delete user: {e}"}, status_code=500)
 # Run the server
 if __name__ == "__main__":
     import uvicorn

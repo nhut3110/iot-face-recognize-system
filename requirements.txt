@@ -10,3 +10,4 @@ firebase-admin
 pydantic 
 pytz 
 requests
+pyserial

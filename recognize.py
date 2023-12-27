@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime
 import requests
 import urllib.request
+import serial
 
 # Load images and create encodings
 def load_images_from_folder(folder='./images'):
@@ -23,8 +24,10 @@ known_faces = load_images_from_folder()
 next_valid_check_in = {}  # Keep track of next valid check-in time for each person
 
 # URL of the remote camera
-url = 'http://192.168.2.41/cam-hi.jpg'
+url = 'http://172.16.5.59/cam-hi.jpg'
 
+# MSerial
+ser = serial.Serial('COM8', 9600)
 while True:
     try:
         # Use urllib to get the image from the IP camera
@@ -60,6 +63,8 @@ while True:
                 # Check if we should wait before next check-in attempt
                 current_time = datetime.now()
                 if personId in next_valid_check_in and next_valid_check_in[personId] > current_time:
+                    next_valid = f"Next valid check-in for {name} is at {next_valid_check_in[personId]}"
+                    ser.write((next_valid + '\n').encode())
                     print(f"Next valid check-in for {name} is at {next_valid_check_in[personId]}")
                     continue
 
@@ -73,16 +78,24 @@ while True:
 
                 # Handle the response
                 if response.status_code == 200:
+                    success = f'Check-in successful for {name}'
+                    ser.write((success + '\n').encode())
                     print(f"Check-in successful for {name}")
                 elif response.status_code == 400:
                     response_data = response.json()
                     if response_data.get('isChecked'):
+                        failed_check = f"Failed to check in {name}: {response_data.get('error')}"
+                        ser.write((failed_check + '\n').encode())
                         print(f"Failed to check in {name}: {response_data.get('error')}")
                         # Update the next valid check-in time
                         next_valid_check_in[personId] = datetime.fromisoformat(response_data['nextValidCheckIn'])
                     else:
+                        failed_check = f"Failed to check in {name}: {response_data.get('error')}"
+                        ser.write((failed_check + '\n').encode())
                         print(f"Failed to check in {name}: {response_data.get('error')}")
                 else:
+                    failed_check = f"Failed to check in {name}: {response.status_code} - {response.text}"
+                    ser.write((failed_check + '\n').encode())
                     print(f"Failed to check in {name}: {response.status_code} - {response.text}")
 
         # Display the resulting image

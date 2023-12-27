@@ -1,9 +1,9 @@
 {
 	"info": {
-		"_postman_id": "1256f453-21d8-4e67-a713-839a9089a1fd",
+		"_postman_id": "c85dd1dc-e3e5-470c-9791-7881d49f1c2b",
 		"name": "face",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "21462224"
+		"_exporter_id": "30213280"
 	},
 	"item": [
 		{
@@ -105,6 +105,62 @@
 					"port": "8000",
 					"path": [
 						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get all user",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8000/get_users/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"get_users",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete user",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8000/delete_user/?name=Nguyen Quang Truon&personId=20020001",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"delete_user",
+						""
+					],
+					"query": [
+						{
+							"key": "name",
+							"value": "Nguyen Quang Truon"
+						},
+						{
+							"key": "personId",
+							"value": "20020001"
+						}
 					]
 				}
 			},

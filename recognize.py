@@ -2,10 +2,11 @@ import face_recognition
 import cv2
 import os
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import urllib.request
 import serial
+import time
 
 # Load images and create encodings
 def load_images_from_folder(folder='./images'):
@@ -22,12 +23,15 @@ def load_images_from_folder(folder='./images'):
 # Initialize some variables
 known_faces = load_images_from_folder()
 next_valid_check_in = {}  # Keep track of next valid check-in time for each person
+continuous_seen = {}  # Track the last time a person was continuously seen
+seen_count = {}  # Count how long a person has been continuously seen
 
 # URL of the remote camera
-url = 'http://172.16.5.59/cam-hi.jpg'
+url = 'http://172.16.5.59/cam-mid.jpg'
 
 # MSerial
-ser = serial.Serial('COM8', 9600)
+ser = serial.Serial('COM5', 9600)
+
 while True:
     try:
         # Use urllib to get the image from the IP camera
@@ -47,6 +51,8 @@ while True:
         face_locations = face_recognition.face_locations(rgb_frame)
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
+        current_time = datetime.now()
+
         for face_encoding in face_encodings:
             matches = face_recognition.compare_faces(list(known_faces.values()), face_encoding)
             name = "Unknown"
@@ -60,10 +66,27 @@ while True:
                 name = name.strip()
                 personId = personId.strip()
 
+                # Initialize continuous_seen and seen_count for the person if not already present
+                if personId not in continuous_seen:
+                    continuous_seen[personId] = current_time
+                    seen_count[personId] = 0
+
+                # Check if the same user stays at camera continuously for at least 5 seconds
+                if current_time - continuous_seen[personId] < timedelta(seconds=5):
+                    seen_count[personId] += 1  # Increment seen count
+                    if seen_count[personId] < 5:
+                        scanning = f"{name}..."
+                        ser.write((scanning + '\n').encode())
+                        print(f"Waiting for {name} to stay in view...")
+                        continue
+
+                # Reset seen count and update last seen time
+                seen_count[personId] = 0
+                continuous_seen[personId] = current_time
+
                 # Check if we should wait before next check-in attempt
-                current_time = datetime.now()
                 if personId in next_valid_check_in and next_valid_check_in[personId] > current_time:
-                    next_valid = f"Next valid check-in for {name} is at {next_valid_check_in[personId]}"
+                    next_valid = f"Back at {next_valid_check_in[personId].strftime('%H:%M')}"
                     ser.write((next_valid + '\n').encode())
                     print(f"Next valid check-in for {name} is at {next_valid_check_in[personId]}")
                     continue
@@ -78,23 +101,23 @@ while True:
 
                 # Handle the response
                 if response.status_code == 200:
-                    success = f'Check-in successful for {name}'
+                    success = f'Check-in {name}'
                     ser.write((success + '\n').encode())
                     print(f"Check-in successful for {name}")
                 elif response.status_code == 400:
                     response_data = response.json()
                     if response_data.get('isChecked'):
-                        failed_check = f"Failed to check in {name}: {response_data.get('error')}"
+                        failed_check = f"Checkin already {name}"
                         ser.write((failed_check + '\n').encode())
                         print(f"Failed to check in {name}: {response_data.get('error')}")
                         # Update the next valid check-in time
                         next_valid_check_in[personId] = datetime.fromisoformat(response_data['nextValidCheckIn'])
                     else:
-                        failed_check = f"Failed to check in {name}: {response_data.get('error')}"
+                        failed_check = f"Checkin failed {name}"
                         ser.write((failed_check + '\n').encode())
                         print(f"Failed to check in {name}: {response_data.get('error')}")
                 else:
-                    failed_check = f"Failed to check in {name}: {response.status_code} - {response.text}"
+                    failed_check = f"Checkin failed {name}"
                     ser.write((failed_check + '\n').encode())
                     print(f"Failed to check in {name}: {response.status_code} - {response.text}")
 

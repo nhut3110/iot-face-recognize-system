@@ -8,13 +8,39 @@ from firebase_admin import credentials, firestore,storage
 import os
 from pydantic import BaseModel
 from pytz import utc
+from fastapi.middleware.cors import CORSMiddleware
+import cloudinary
+import cloudinary.uploader
+
+# Initialize Cloudinary
+cloudinary.config(
+  cloud_name = 'dpknzxrit',
+  api_key = '864491999737496',
+  api_secret = 'pKpBAY2E2zMKqndMPTyMXy0MENc'
+)
+
 # Initialize Firebase Admin
 cred = credentials.Certificate("./firebase.json")
 firebase_admin.initialize_app(cred,{"storageBucket": "video-sum-b43b5.appspot.com",})
 db = firestore.client()
 
-# FastAPI app instance
 app = FastAPI()
+
+origins = [
+    "http://localhost:3000",  # Adjust the port if your frontend runs on a different one
+    "http://localhost:5173",  # Adjust the port if your frontend runs on a different one
+    "http://localhost",  # For non-specific port access
+]
+
+# Set up the CORS middleware configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # List of origins that are allowed to access the server
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+# FastAPI app instance
 
 # Local storage for quick checks (you can also implement cache for this)
 last_check_in = {}
@@ -35,7 +61,7 @@ async def check_in(check_in_data: CheckInRequest):
     timestamp_naive = timestamp.replace(tzinfo=None)
 
     # Create a composite ID for the document based on personId and the hour of check-in
-    doc_id = f"{timestamp_naive.strftime('%Y%m%d')}" # Save this into Month-Day
+    doc_id = f"{personId}_{timestamp_naive.strftime('%Y%m%d%H')}"
 
     try:
         # Try to get the existing document for this hour
@@ -149,13 +175,12 @@ async def register(name: str = Form(...), personId: str = Form(...), file: Uploa
         with open(file_path, 'wb') as image:
             content = await file.read()  # async read
             image.write(content)
-        # Upload the file to Firebase Storage
-        bucket = storage.bucket()
-        blob = bucket.blob(filename)
-        blob.upload_from_filename(file_path)
 
-        # Get the download URL of the uploaded file
-        download_url = blob.public_url
+        # Upload the file to Cloudinary
+        upload_result = cloudinary.uploader.upload(file_path, public_id=filename)
+
+        # Get the URL of the uploaded image
+        download_url = upload_result.get('secure_url')
 
         # Store information in Firestore
         db = firestore.client()
@@ -165,6 +190,7 @@ async def register(name: str = Form(...), personId: str = Form(...), file: Uploa
             'personId': personId,
             'url': download_url,
         })
+
         # Process and store the face encoding (optional, depending on your use case)
         current_image = face_recognition.load_image_file(file_path)
         encodings = face_recognition.face_encodings(current_image)
@@ -176,6 +202,7 @@ async def register(name: str = Form(...), personId: str = Form(...), file: Uploa
 
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to register user: {e}"}, status_code=500)
+    
 @app.get("/get_users")
 async def get_users():
     try:
@@ -197,7 +224,7 @@ async def get_users():
         return JSONResponse(content={"error": f"Failed to get user: {e}"}, status_code=500)
 
 @app.delete("/delete_user/")
-async def delete_user(name: str, personId: str):
+async def delete_user(name: str = Form(...), personId: str = Form(...)):
     try:
         db = firestore.client()
         users_ref = db.collection('users')
@@ -206,12 +233,6 @@ async def delete_user(name: str, personId: str):
         if user_doc:
             # Get the user data
             user_data = user_doc.to_dict()
-
-            # Delete the user's image from Firebase Storage
-            storage_filename = f"{name} - {personId}.jpg"
-            bucket = storage.bucket()
-            blob = bucket.blob(storage_filename)
-            blob.delete()
 
             # Delete the user document from Firestore
             users_ref.document(personId).delete()
@@ -228,6 +249,7 @@ async def delete_user(name: str, personId: str):
 
     except Exception as e:
         return JSONResponse(content={"error": f"Failed to delete user: {e}"}, status_code=500)
+    
 # Run the server
 if __name__ == "__main__":
     import uvicorn
